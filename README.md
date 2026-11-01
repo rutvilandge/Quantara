@@ -2,6 +2,8 @@
 
 A conversational analytics workspace built around your data. The original forest-and-sage landing page, typography, gradients, and authentication layouts are preserved throughout the responsive application.
 
+**Live website: [quantara-neon.vercel.app](https://quantara-neon.vercel.app)** · [Deployment status and limitations](docs/deployment-status.md)
+
 ![QUANTARA dashboard](frontend/artifacts/dashboard-builder.png)
 
 ## What works

@@ -1,0 +1,56 @@
+import { test, expect } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
+import { mutate } from './helpers';
+
+test('live Vercel frontend, Render backend, Neon session, upload, dashboard, and ML', async ({ page }) => {
+  test.skip(process.env.E2E_PRODUCTION !== 'true', 'Run explicitly against the deployed production URL');
+  test.setTimeout(300_000);
+  await expect.poll(async () => {
+    const response = await page.request.fetch('https://quantara-api-dt51.onrender.com/api/datasets', { method: 'OPTIONS', headers: { Origin: 'https://quantara-neon.vercel.app', 'Access-Control-Request-Method': 'POST' } });
+    return response.status();
+  }, { timeout: 180_000, intervals: [5000] }).toBe(200);
+  expect((await page.request.get('https://quantara-api-dt51.onrender.com/actuator/health')).status()).toBe(200);
+  const email = `production-${randomUUID()}@example.test`;
+  const password = `Qa!${randomUUID()}`;
+  await page.goto('/signup');
+  await page.getByLabel('Full name', { exact: true }).fill('Production Check');
+  await page.getByLabel('Email address', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByLabel('Confirm password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByLabel('Email address', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).toHaveURL(/\/app$/);
+  const session = (await page.context().cookies()).find(cookie => cookie.name === 'JSESSIONID');
+  expect(session?.httpOnly).toBe(true); expect(session?.secure).toBe(true);
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'A little clarity, Production.' })).toBeVisible();
+  const demo = await (await mutate(page.request, '/api/datasets/demo')).json();
+  expect(demo.rowCount).toBe(750);
+  const result = await (await mutate(page.request, '/api/queries/run', { datasetId: demo.id, sql: 'SELECT region, SUM(revenue) AS total FROM data GROUP BY region' })).json();
+  expect(result.rows).toHaveLength(4);
+  await page.goto('/app/datasets');
+  await page.locator('input[type=file]').setInputFiles({ name: 'live-upload.csv', mimeType: 'text/csv', buffer: Buffer.from('region,revenue\nWest,100\nEast,250\n') });
+  await expect(page.getByRole('heading', { name: 'live-upload' })).toBeVisible();
+  await page.goto(`/app/dashboards`);
+  const dashboard = await mutate(page.request, '/api/dashboards', { name: 'Live deployment check', widgets: [{ id: 'region', title: 'Revenue by region', datasetId: demo.id, sql: 'SELECT region, SUM(revenue) AS revenue FROM data GROUP BY region', chartType: 'bar', dimension: 'region', metric: 'revenue' }] });
+  expect(dashboard.status()).toBe(201);
+  const saved = await dashboard.json();
+  await page.goto(`/app/dashboards/${saved.id}`);
+  await expect(page.getByText('Revenue by region', { exact: true }).first()).toBeVisible();
+  await expect.poll(async () => (await (await page.request.get('/api/analytics/status')).json()).available,
+    { timeout: 90_000, intervals: [5000] }).toBe(true);
+  const analysis = await mutate(page.request, '/api/analytics/analyze', { datasetId: demo.id, dateColumn: 'date', metricColumn: 'revenue', horizon: 7, frequency: 'D', aggregation: 'sum' });
+  expect(analysis.status()).toBe(200);
+  const prediction = await analysis.json();
+  expect(prediction.intervalLevel).toBe(0.95);
+  expect(prediction.points.filter((point: {forecast: number | null}) => point.forecast !== null)).toHaveLength(7);
+  expect(Number.isFinite(prediction.evaluation.rmse)).toBe(true);
+  const localModel = await (await page.request.get('/api/copilot/status')).json();
+  console.log('Cloud model readiness:', localModel.modelReady);
+  await page.screenshot({ path: 'artifacts/production-dashboard.png', fullPage: true });
+  expect((await mutate(page.request, '/api/auth/logout')).status()).toBe(204);
+  expect((await page.request.get('/api/auth/me')).status()).toBe(401);
+});

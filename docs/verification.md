@@ -9,7 +9,7 @@ The original landing implementation and authentication stylesheet/layout are pro
 - Maven package: 11 tests, 10 passed, one optional environment-dependent database test skipped. Authentication/session/CSRF, actual DuckDB isolation, rejected SQL, and rate-limit behavior are covered.
 - Python: three tests passed. They cover real forecast bounds, anomaly detection, temporal evaluation, missing actuals, token authentication, and invalid inputs.
 - Frontend production build and lint complete. Lint currently reports advisory React purity/refresh/effect warnings, including existing landing/auth code. The production build reports a large initial bundle advisory; neither check reports a compilation error.
-- Playwright phase suites exercise real Neon registration/login, dataset isolation, CSV/XLSX uploads, SQL, Ollama, ML, dashboards, filters, reports, profile preferences, onboarding, search, and notifications. Final run results are recorded separately when complete.
+- Playwright: all seven local acceptance scenarios passed. Six passed in the complete run; the final CORS assertion was corrected to target Spring Boot directly instead of Vite's preflight handler, then the complete seventh scenario passed. Tests exercise real Neon registration/login, dataset isolation, CSV/XLSX uploads, SQL, streaming Ollama, ML, dashboards, filters, reports, profile preferences, onboarding, search, and notifications.
 
 Screenshots live in `frontend/artifacts`. No test credentials are checked into source. Browser tests create uniquely named test accounts and preserve pre-existing data.
 
