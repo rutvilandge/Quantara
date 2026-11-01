@@ -18,13 +18,27 @@ function queuedQuery(options: RequestInit) {
   return job;
 }
 function widget(datasetId: string, title: string, sql: string, chartType: Widget['chartType'], dimension = '', metric = ''): Widget { return { id: crypto.randomUUID(), datasetId, title, sql, chartType, dimension, metric }; }
+function buildOverview(source: Dataset): Widget[] {
+  const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
+  const numeric = source.columns.filter(c => c.type === 'number');
+  const metric = numeric.find(c => !/(^id$|_id$)/i.test(c.name)) || numeric[0];
+  const category = source.columns.find(c => c.type === 'text' && c.distinct > 1 && c.distinct <= 100) || source.columns.find(c => c.type === 'boolean');
+  const dateColumn = source.columns.find(c => c.type === 'date');
+  const result = [widget(source.id, 'Total records', 'SELECT COUNT(*) AS records FROM data', 'kpi', '', 'records')];
+  if (metric) result.push(widget(source.id, `Total ${metric.name.replaceAll('_', ' ')}`, `SELECT SUM(${quote(metric.name)}) AS total FROM data`, 'kpi', '', 'total'));
+  if (dateColumn) result.push(widget(source.id, metric ? `${metric.name.replaceAll('_', ' ')} over time` : 'Records over time', `SELECT DATE_TRUNC('month', ${quote(dateColumn.name)})::DATE AS period, ${metric ? `SUM(${quote(metric.name)})` : 'COUNT(*)'} AS value FROM data GROUP BY period ORDER BY period`, 'area', 'period', 'value'));
+  if (category) result.push(widget(source.id, metric ? `${metric.name.replaceAll('_', ' ')} by ${category.name.replaceAll('_', ' ')}` : `Records by ${category.name.replaceAll('_', ' ')}`, `SELECT ${quote(category.name)}, ${metric ? `SUM(${quote(metric.name)})` : 'COUNT(*)'} AS value FROM data GROUP BY ${quote(category.name)} ORDER BY value DESC LIMIT 15`, 'bar', category.name, 'value'));
+  if (!category && numeric.length > 1) result.push(widget(source.id, 'Numeric relationship', `SELECT ${quote(numeric[0].name)}, ${quote(numeric[1].name)} FROM data LIMIT 200`, 'scatter', numeric[0].name, numeric[1].name));
+  result.push(widget(source.id, 'Your data, in detail', 'SELECT * FROM data LIMIT 25', 'table'));
+  return result;
+}
 export default function DashboardsPage() {
   const dashboards = useResource<DashboardItem[]>('/dashboards');
   const datasets = useResource<DatasetItem[]>('/datasets');
   const navigate = useNavigate();
   const [name, setName] = useState('My perspective');
   const [datasetId, setDatasetId] = useState('');
-  const [template, setTemplate] = useState('ecommerce');
+  const [template, setTemplate] = useState('auto');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const selected = datasetId || datasets.data?.find(d => d.is_demo)?.id || datasets.data?.[0]?.id || '';
@@ -32,18 +46,19 @@ export default function DashboardsPage() {
     event.preventDefault(); setCreating(true); setError('');
     try {
       let widgets: Widget[] = [];
-      if (template === 'ecommerce') {
-        const source = await apiRequest<Dataset>(`/datasets/${selected}`);
-        if (!['revenue', 'profit', 'region', 'product', 'date'].every(c => source.columns.some(column => column.name === c))) throw new Error('This template needs revenue, profit, region, product, and date columns. Choose the E-commerce demo or use a blank canvas.');
+      const source = template === 'blank' ? null : await apiRequest<Dataset>(`/datasets/${selected}`);
+      const ecommerce = source && ['revenue', 'profit', 'region', 'product', 'date'].every(c => source.columns.some(column => column.name === c)) && source.columns.some(c => c.name === 'date' && c.type === 'date') && ['revenue', 'profit'].every(name => source.columns.some(c => c.name === name && c.type === 'number'));
+      if ((template === 'ecommerce' || template === 'auto') && ecommerce) {
         widgets = [widget(selected, 'Total revenue', 'SELECT SUM(revenue) AS revenue FROM data', 'kpi', '', 'revenue'), widget(selected, 'Total profit', 'SELECT SUM(profit) AS profit FROM data', 'kpi', '', 'profit'), widget(selected, 'Monthly revenue', "SELECT DATE_TRUNC('month', date)::DATE AS month, SUM(revenue) AS revenue FROM data GROUP BY month ORDER BY month", 'area', 'month', 'revenue'), widget(selected, 'Revenue by region', 'SELECT region, SUM(revenue) AS revenue FROM data GROUP BY region ORDER BY revenue DESC', 'bar', 'region', 'revenue'), widget(selected, 'Product contribution', 'SELECT product, SUM(revenue) AS revenue FROM data GROUP BY product ORDER BY revenue DESC', 'pie', 'product', 'revenue')];
       }
+      if ((template === 'auto' || template === 'ecommerce') && source && !ecommerce) widgets = buildOverview(source);
       if (template === 'explorer') widgets = [widget(selected, 'Total records', 'SELECT COUNT(*) AS records FROM data', 'kpi', '', 'records'), widget(selected, 'Your data, in detail', 'SELECT * FROM data LIMIT 25', 'table')];
       const result = await apiRequest<{ id: string }>('/dashboards', { method: 'POST', body: JSON.stringify({ name, widgets }) });
       navigate(`/app/dashboards/${result.id}`);
     } catch (e) { setError(e instanceof Error ? e.message : 'Unable to create dashboard'); }
     finally { setCreating(false); }
   }
-  return <><PageHeading eyebrow="YOUR VISUAL STORIES" title="A perspective worth keeping." description="Build, arrange, and save dashboards from your own data."/><Panel title="Start with a clear canvas" description="One E-commerce template, a general data explorer, or a blank canvas."><form className="q-dashboard-create" onSubmit={e => void create(e)}><label>Dashboard name<input required aria-label="Dashboard name" maxLength={150} value={name} onChange={e => setName(e.target.value)}/></label><label>Dataset<select aria-label="Dashboard dataset" value={selected} onChange={e => setDatasetId(e.target.value)}><option value="" disabled>Choose a dataset</option>{datasets.data?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label><label>Starting point<select aria-label="Dashboard template" value={template} onChange={e => setTemplate(e.target.value)}><option value="ecommerce">E-commerce overview</option><option value="explorer">Data explorer</option><option value="blank">Blank canvas</option></select></label><button className="q-button" disabled={creating || !name.trim() || (!selected && template !== 'blank')}>{creating ? <Busy label="Creating…"/> : <><Plus size={15}/>Create dashboard</>}</button></form>{error && <p className="q-form-error" role="alert">{error}</p>}</Panel><div className="q-section-label">SAVED PERSPECTIVES</div>{dashboards.loading ? <Loading/> : dashboards.error ? <Failure message={dashboards.error} retry={dashboards.refresh}/> : dashboards.data?.length ? <div className="q-dataset-grid">{dashboards.data.map(d => <Link className="q-dataset-card" to={`/app/dashboards/${d.id}`} key={d.id}><div className="q-dataset-card-top"><span className="q-list-icon"><LayoutDashboard size={22}/></span><ArrowUpRight size={17}/></div><h2>{d.name}</h2><p>{d.widget_count} visualizations</p><p className="q-caption">Updated {date(d.updated_at)}</p></Link>)}</div> : <Panel><Empty title="A story takes shape." description="Create a dashboard above. Its layout and queries will be saved privately to your account."/></Panel>}</>;
+  return <><PageHeading eyebrow="YOUR VISUAL STORIES" title="A perspective worth keeping." description="Build, arrange, and save dashboards from your own data."/><Panel title="Start with a clear canvas" description="Create an overview tailored to your columns, explore your data, or start with a blank canvas."><form className="q-dashboard-create" onSubmit={e => void create(e)}><label>Dashboard name<input required aria-label="Dashboard name" maxLength={150} value={name} onChange={e => setName(e.target.value)}/></label><label>Dataset<select aria-label="Dashboard dataset" value={selected} onChange={e => setDatasetId(e.target.value)}><option value="" disabled>Choose a dataset</option>{datasets.data?.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label><label>Starting point<select aria-label="Dashboard template" value={template} onChange={e => setTemplate(e.target.value)}><option value="auto">Automatic overview</option><option value="ecommerce">E-commerce overview</option><option value="explorer">Data explorer</option><option value="blank">Blank canvas</option></select></label><button className="q-button" disabled={creating || !name.trim() || (!selected && template !== 'blank')}>{creating ? <Busy label="Creating…"/> : <><Plus size={15}/>Create dashboard</>}</button></form>{error && <p className="q-form-error" role="alert">{error}</p>}</Panel><div className="q-section-label">SAVED PERSPECTIVES</div>{dashboards.loading ? <Loading/> : dashboards.error ? <Failure message={dashboards.error} retry={dashboards.refresh}/> : dashboards.data?.length ? <div className="q-dataset-grid">{dashboards.data.map(d => <Link className="q-dataset-card" to={`/app/dashboards/${d.id}`} key={d.id}><div className="q-dataset-card-top"><span className="q-list-icon"><LayoutDashboard size={22}/></span><ArrowUpRight size={17}/></div><h2>{d.name}</h2><p>{d.widget_count} visualizations</p><p className="q-caption">Updated {date(d.updated_at)}</p></Link>)}</div> : <Panel><Empty title="A story takes shape." description="Create a dashboard above. Its layout and queries will be saved privately to your account."/></Panel>}</>;
 }
 
 function WidgetCard({ item, filters, onFilter }: { item: Widget; filters: Filters; onFilter: (column: string, value: string) => void }) {

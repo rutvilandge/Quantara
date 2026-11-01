@@ -32,6 +32,7 @@ ML_SERVICE_URL=<HTTPS ML service origin>
 ML_SERVICE_TOKEN
 OLLAMA_URL=<reachable model origin, if available>
 OLLAMA_MODEL=qwen2.5-coder:3b
+OLLAMA_API_TOKEN=<required for a remote model gateway>
 ```
 
 Vercel must proxy `/api/:path*` to Render before the SPA fallback rewrite. Leave the frontend API base at `/api`. This keeps session and CSRF cookies on the frontend origin; do not switch to cross-site cookies unnecessarily. Verify signup, login, reload, CSRF-protected mutations, logout, and private dataset access on the actual production URL.
@@ -40,7 +41,19 @@ Vercel must proxy `/api/:path*` to Render before the SPA fallback rewrite. Leave
 
 Render Free services spin down after inactivity and share the workspace's free instance-hour allowance. Two services consume that allowance concurrently while awake. Cold starts can make the first request time out. Do not create artificial keep-alive traffic or claim guaranteed availability. See [Render Free documentation](https://render.com/docs/free).
 
-A 3B Ollama model is not a reliable fit for a 512 MB Free instance. Render cannot access Ollama running on a developer's `127.0.0.1`. Therefore the cloud Copilot explicitly reports unavailable unless a reachable model service is configured. The full Ollama workflow remains available locally through `start-local.ps1`; SQL execution, uploads, dashboards, and reports work independently. Do not replace Qwen with fabricated answers or an undisclosed paid API. Any public model gateway must enforce authentication and HTTPS before `OLLAMA_URL` is changed.
+A 3B Ollama model is not a reliable fit for a 512 MB Free instance. Render cannot access Ollama running on a developer's `127.0.0.1`. The optional authenticated local bridge below connects Render to the existing Qwen model over HTTPS. SQL execution, uploads, dashboards, and reports work independently. Do not replace Qwen with fabricated answers or an undisclosed paid API. Remote model endpoints require HTTPS and `OLLAMA_API_TOKEN`.
+
+### Optional local Qwen bridge
+
+Keep Ollama running with `qwen2.5-coder:3b` installed. Install the official [cloudflared client](https://developers.cloudflare.com/tunnel/downloads/) and log into the official Render CLI. Then run from the repository root:
+
+```powershell
+.\ml-service\.venv\Scripts\python.exe -u scripts/connect-local-ollama.py --service-id YOUR_RENDER_API_SERVICE_ID --cloudflared PATH_TO_CLOUDFLARED_EXE
+```
+
+The supervisor starts a gateway bound only to `127.0.0.1:11435`, generates a random token in memory, verifies anonymous access is rejected, configures the backend's `OLLAMA_URL` and `OLLAMA_API_TOKEN` securely, and triggers a Render deployment. It exposes only model-list and chat routes for the selected Qwen model; model installation and unrelated Ollama APIs are unavailable. Neither the token nor chat content is written to logs or command arguments.
+
+This is a temporary demo connection. Your computer, Ollama, and the supervisor must stay running. Stopping the supervisor ends the tunnel; restarting it creates a new hostname and token and updates Render again. [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/) have no uptime guarantee and are intended for testing. They do not support SSE; the model bridge uses Ollama NDJSON, while Spring Boot emits its own browser-facing SSE stream. Verify actual streaming through the complete deployed path. A stable production model host requires a separately configured service or a named tunnel; this setup does not claim always-on cloud AI hosting.
 
 If the separate Python Free service cannot fit memory, exhausts shared hours, or cannot be provisioned without payment, retain all ML code and use the documented local launcher or private Docker Compose deployment. Cloud statistical controls then report the unavailable service clearly, without fake forecasts. A securely hosted Python endpoint can be connected later by changing only `ML_SERVICE_URL` and the shared token. `compose.yaml` keeps Python private to Java and exposes only port 8080. This fallback costs ₹0 on existing hardware and requires that hardware to remain running.
 
