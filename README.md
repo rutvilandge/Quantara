@@ -787,53 +787,62 @@ flowchart TD
 
 ## 📁 Project Structure
 
-```text
-QUANTARA/
-├── .github/
-│   └── workflows/          # CI checks and automation
-├── backend/                # Java 21 / Spring Boot application
-│   ├── src/
-│   │   ├── main/           # APIs, auth, business logic, config, migrations
-│   │   └── test/           # Backend tests
-│   ├── mvnw.cmd            # Windows Maven wrapper
-│   └── start-local.ps1     # Secure local startup helper
-├── frontend/               # React / Vite / TypeScript application
-│   ├── src/
-│   │   ├── assets/         # Static UI assets
-│   │   ├── components/     # Shared UI, charts, auth, dataset components
-│   │   ├── context/        # Application-wide React context
-│   │   ├── hooks/          # Reusable React hooks
-│   │   ├── lib/            # Shared utilities and helpers
-│   │   ├── pages/          # Route-level product screens
-│   │   ├── services/       # API client and frontend integrations
-│   │   └── styles/         # Global styles and design tokens
-│   ├── e2e/                # Playwright browser tests
-│   ├── public/             # Public assets
-│   └── package.json        # Frontend dependencies and scripts
-├── ml-service/             # Private Python FastAPI analytics service
-│   └── requirements-dev.txt # Development and test dependencies
-├── docs/                   # API, deployment, design, verification docs
-├── .gitignore              # Local files and secret exclusions
-├── compose.yaml            # Optional local orchestration configuration
-├── render.yaml             # Render deployment blueprint
-└── README.md               # Project overview and setup guide
+```mermaid
+flowchart TD
+    ROOT["🗄️ QUANTARA<br/>AI-Powered Analytics Platform"]
+
+    ROOT --> FE["🎨 frontend/<br/>React 19 + Vite + TypeScript"]
+    ROOT --> BE["☕ backend/<br/>Java 21 + Spring Boot 4"]
+    ROOT --> ML["🐍 ml-service/<br/>Python + FastAPI"]
+    ROOT --> DOC["📚 docs/<br/>Technical Documentation"]
+    ROOT --> CI["⚙️ .github/workflows/<br/>GitHub Actions"]
+    ROOT --> DEP["☁️ Deployment Files"]
+
+    FE --> FP["📄 src/pages/<br/>Application Screens"]
+    FE --> FC["🧩 src/components/<br/>Reusable UI Components"]
+    FE --> FS["🔗 src/services/<br/>Backend API Integration"]
+    FE --> FH["🪝 src/hooks/<br/>Custom React Hooks"]
+    FE --> FX["🌐 src/context/<br/>Shared Application State"]
+    FE --> FST["🎨 src/styles/<br/>Global Styling"]
+    FE --> FA["🖼️ src/assets/<br/>Images and Icons"]
+    FE --> FT["🧪 e2e/<br/>Playwright Tests"]
+
+    FP --> P1["Overview + Datasets"]
+    FP --> P2["AI Copilot + SQL Workspace"]
+    FP --> P3["Statistical Analytics + Dashboards"]
+    FP --> P4["Reports + Activity + Settings"]
+
+    BE --> BJ["📂 src/main/java/<br/>Java Application Code"]
+    BE --> BR["📂 src/main/resources/<br/>Configuration + Migrations"]
+    BE --> BT["🧪 src/test/<br/>Backend Tests"]
+
+    BJ --> BC["Controllers<br/>REST API Endpoints"]
+    BJ --> BS["Services<br/>Business Logic"]
+    BJ --> BDB["Repositories<br/>Database Access"]
+    BJ --> BSEC["Security<br/>Authentication + CSRF"]
+    BJ --> BSQL["Analytics<br/>SQL Validation + DuckDB"]
+
+    ML --> M1["FastAPI<br/>Analytics Endpoints"]
+    ML --> M2["scikit-learn<br/>Anomaly Detection"]
+    ML --> M3["Statsmodels<br/>Time-Series Forecasting"]
+    ML --> M4["Pandas + NumPy<br/>Data Processing"]
+
+    DOC --> D1["Architecture + API Guides"]
+    DOC --> D2["Deployment + Testing Guides"]
+
+    DEP --> V["Vercel<br/>Frontend Hosting"]
+    DEP --> R["render.yaml<br/>Render Configuration"]
+    DEP --> C["compose.yaml<br/>Optional Local Orchestration"]
+    DEP --> G[".gitignore<br/>Git Exclusions"]
+
+    classDef root fill:#173D32,color:#FFFFFF,stroke:#173D32,stroke-width:3px
+    classDef main fill:#DCEDE3,color:#173D32,stroke:#7DA58C,stroke-width:2px
+    classDef child fill:#F5F8F2,color:#173D32,stroke:#A8C3AE
+
+    class ROOT root
+    class FE,BE,ML,DOC,CI,DEP main
+    class FP,FC,FS,FH,FX,FST,FA,FT,BJ,BR,BT,M1,M2,M3,M4,D1,D2,V,R,C,G child
 ```
-
-> The tree is a **high-level map** of the repository folders shown in the project description. Exact internal Java packages and Python modules should be documented from the final committed source rather than guessed.
-
-### Folder guide
-
-| Path | What's inside |
-|---|---|
-| `.github/workflows/` | Continuous integration workflows and checks |
-| `backend/` | Authentication, authorization, API routes, persistence, SQL validation, application configuration |
-| `frontend/src/components/` | Reusable UI building blocks, data tables, charts, and forms |
-| `frontend/src/pages/` | Main screens such as dashboard, datasets, copilot, and settings |
-| `frontend/src/services/` | Typed requests to backend endpoints |
-| `frontend/e2e/` | Browser journeys for authentication and analytics workflows |
-| `ml-service/` | Statistical models and FastAPI endpoints |
-| `docs/` | Deeper architecture, API, design, deployment, and test notes |
-| `render.yaml` | Declarative Render service configuration |
 
 ---
 
