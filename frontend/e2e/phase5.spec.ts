@@ -1,0 +1,35 @@
+import { test, expect } from '@playwright/test';
+import { authenticate, mutate } from './helpers';
+
+test('profile persistence, onboarding, private search, notifications, and usage', async ({ page }) => {
+  test.setTimeout(120_000);
+  await authenticate(page);
+  await page.goto('/app');
+  await expect(page.getByRole('heading', { name: 'A few small steps. A whole new view.' })).toBeVisible();
+  await page.getByRole('button', { name: 'Dismiss getting-started guide' }).click();
+  await expect(page.locator('.q-onboarding')).toHaveCount(0);
+  await page.goto('/app/settings');
+  await page.getByLabel('Profile full name').fill('Rutvi Analytics Test');
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click();
+  await expect(page.getByText('Profile saved.', { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel('Profile full name')).toHaveValue('Rutvi Analytics Test');
+  await page.getByLabel('Appearance preference').selectOption('dark');
+  await expect(page.locator('.quantara-app')).toHaveAttribute('data-theme', 'dark');
+  await page.reload();
+  await expect(page.locator('.quantara-app')).toHaveAttribute('data-theme', 'dark');
+  const demo = await (await mutate(page.request, '/api/datasets/demo')).json();
+  await page.getByRole('button', { name: 'Search workspace', exact: true }).click();
+  await page.getByLabel('Workspace search query').fill('E-commerce');
+  await expect(page.getByRole('dialog').getByRole('link', { name: /E-commerce Sales/ })).toBeVisible();
+  await page.getByRole('dialog').getByRole('link', { name: /E-commerce Sales/ }).click();
+  await expect(page).toHaveURL(new RegExp(`/datasets/${demo.id}$`));
+  await page.getByRole('button', { name: 'Recent notifications', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Workspace updates' })).toBeVisible();
+  await page.getByRole('button', { name: 'Mark notifications as read' }).click();
+  await expect.poll(async () => (await (await page.request.get('/api/workspace/notifications')).json()).filter((n: { unread: boolean }) => n.unread).length).toBe(0);
+  const usage = await (await page.request.get('/api/account/usage')).json();
+  expect(usage.datasets).toBe(1);
+  expect(usage.rows).toBe(750);
+  await page.screenshot({ path: 'artifacts/workspace-settings-and-search.png', fullPage: true });
+});

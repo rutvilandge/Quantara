@@ -1,0 +1,40 @@
+# Both services must remain on the Free plan. Existing Neon is external.
+services:
+  - type: web
+    name: quantara-api
+    runtime: docker
+    plan: free
+    region: ohio
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_USERNAME
+        sync: false
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: SESSION_COOKIE_SECURE
+        value: "true"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: ML_SERVICE_URL
+        sync: false
+      - key: ML_SERVICE_TOKEN
+        sync: false
+      - key: OLLAMA_URL
+        sync: false
+      - key: OLLAMA_MODEL
+        value: qwen2.5-coder:3b
+  - type: web
+    name: quantara-ml
+    runtime: docker
+    plan: free
+    region: ohio
+    rootDir: ml-service
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: ML_SERVICE_TOKEN
+        sync: false

@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+:root {
+  font-family: "Inter", "Segoe UI", sans-serif;
+  color: #20352b;
+  background: #f8faf7;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+::selection {
+  background: #c9dfc9;
+  color: #20352b;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.floating {
+  animation: float 6s ease-in-out infinite;
+}
+
+.soft-glow {
+  animation: glow 7s ease-in-out infinite;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.76);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(220, 230, 220, 0.8);
+}
+
+.gradient-text {
+  background: linear-gradient(110deg, #254b37, #789b7d);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(80, 120, 90, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(80, 120, 90, 0.045) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
