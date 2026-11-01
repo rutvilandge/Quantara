@@ -83,6 +83,10 @@ Candidate models are selected using an earlier validation window. Final MAE, RMS
 
 See [deployment and free-tier constraints](docs/deployment.md), [API reference](docs/api.md), [design system](docs/design-system.md), and [verification](docs/verification.md).
 
+## License
+
+[MIT](LICENSE) · Copyright 2026 Rutvi Landge.
+
 ## Checks
 
 ```powershell
